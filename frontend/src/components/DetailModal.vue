@@ -9,11 +9,23 @@
     <div v-if="item" class="modal-body">
       <!-- Header Area -->
       <div class="modal-header">
-        <div class="badges-group">
-          <span class="badge cat-badge">{{ categoryLabel }}</span>
-          <span class="badge campus-badge">📍 {{ item.campus || '全部校区' }}</span>
-          <span class="badge source-badge">🏛️ {{ item.source_site }}</span>
+        <div class="header-top-row">
+          <div class="badges-group">
+            <span class="badge cat-badge">{{ categoryLabel }}</span>
+            <span class="badge campus-badge">📍 {{ item.campus || '全部校区' }}</span>
+            <span class="badge source-badge">🏛️ {{ item.source_site }}</span>
+          </div>
+
+          <!-- Favorite Button in Modal -->
+          <button
+            :class="['modal-fav-btn', { active: isStarred }]"
+            :title="isStarred ? '取消关注' : '加入我的关注'"
+            @click="handleToggleFav"
+          >
+            <span>{{ isStarred ? '★ 已关注' : '☆ 关注' }}</span>
+          </button>
         </div>
+
         <h2 class="modal-title">{{ item.title }}</h2>
       </div>
 
@@ -61,7 +73,17 @@
 
       <!-- Footer Buttons -->
       <div class="modal-actions">
-        <el-button @click="visible = false">关闭窗口</el-button>
+        <el-button @click="visible = false">关闭</el-button>
+
+        <!-- Export to Calendar -->
+        <el-button
+          type="warning"
+          plain
+          @click="handleExportCalendar"
+        >
+          📅 加入系统日历 (.ics)
+        </el-button>
+
         <el-button
           v-if="item.url"
           type="primary"
@@ -76,6 +98,9 @@
 
 <script setup>
 import { computed } from 'vue'
+import { isFavorite, toggleFavorite } from '../utils/storage'
+import { exportToCalendar } from '../utils/calendar'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   modelValue: {
@@ -94,6 +119,31 @@ const visible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val)
 })
+
+const isStarred = computed(() => {
+  return props.item ? isFavorite(props.item.id) : false
+})
+
+function handleToggleFav() {
+  if (!props.item) return
+  const added = toggleFavorite(props.item.id)
+  if (added) {
+    ElMessage.success('已加入“我的关注”！可在顶部 Tab 快速查看')
+  } else {
+    ElMessage.info('已取消关注')
+  }
+}
+
+function handleExportCalendar() {
+  if (!props.item) return
+  const success = exportToCalendar(props.item)
+  if (success) {
+    ElMessage.success({
+      message: '已导出 .ics 日历文件，支持 iOS/安卓/Mac/Windows 日历打开提醒！',
+      duration: 3500
+    })
+  }
+}
 
 const categoryLabel = computed(() => {
   if (!props.item) return ''
@@ -139,11 +189,44 @@ function openOriginalUrl() {
   margin-bottom: 1.25rem;
 }
 
+.header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
 .badges-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+}
+
+.modal-fav-btn {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  color: #b45309;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.15s;
+}
+
+.modal-fav-btn:hover {
+  background: #fef3c7;
+  transform: translateY(-1px);
+}
+
+.modal-fav-btn.active {
+  background: #f59e0b;
+  color: #ffffff;
+  border-color: #f59e0b;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.25);
 }
 
 .badge {

@@ -15,7 +15,12 @@
       <!-- Content Status & Result Counter -->
       <div class="result-header">
         <div class="result-count">
-          共感知到 <span class="highlight">{{ totalItems }}</span> 条学术与竞赛情报
+          <span v-if="filterParams.only_favorites">
+            ⭐ 当前正在查看 <span class="highlight-fav">我的关注</span> (共 {{ totalItems }} 项)
+          </span>
+          <span v-else>
+            共感知到 <span class="highlight">{{ totalItems }}</span> 条学术与竞赛情报
+          </span>
           <span v-if="activeFilterDesc" class="filter-hint">({{ activeFilterDesc }})</span>
         </div>
         <div class="actions-group">
@@ -56,7 +61,11 @@
 
       <!-- Empty State -->
       <div v-else-if="items.length === 0" class="empty-state">
-        <el-empty description="未检索到符合条件的学术或竞赛情报，可尝试更换关键词或校区">
+        <el-empty
+          :description="filterParams.only_favorites
+            ? '暂无关注的情报条目。点击任意卡片右上角的五角星 ☆ 即可加入“我的关注”！'
+            : '未检索到符合条件的学术或竞赛情报，可尝试更换关键词或校区'"
+        >
           <el-button type="primary" @click="resetFilters">清空筛选条件</el-button>
         </el-empty>
       </div>
@@ -72,7 +81,7 @@
       </div>
 
       <!-- Pagination -->
-      <div class="pagination-wrapper" v-if="totalItems > pageSize">
+      <div class="pagination-wrapper" v-if="totalItems > pageSize && !filterParams.only_favorites">
         <el-pagination
           v-model:current-page="currentPage"
           :page-size="pageSize"
@@ -94,19 +103,20 @@
     <footer class="app-footer">
       <div class="footer-inner">
         <div>HFUT-PerceptPulse 校园学术与竞赛情报感知系统 · 计算机与信息学院 & 管理学院创新实践</div>
-        <div class="footer-sub">面向合肥工业大学翡翠湖、屯溪路与宣城校区 · 自动化感知与截止日期预警</div>
+        <div class="footer-sub">面向合肥工业大学翡翠湖、屯溪路与宣城校区 · 自动化感知 · 关注收藏 · 日程导出</div>
       </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Navbar from './components/Navbar.vue'
 import FilterBar from './components/FilterBar.vue'
 import ItemCard from './components/ItemCard.vue'
 import DetailModal from './components/DetailModal.vue'
 import { getItems, getItemDetail, getStatsSummary, triggerCrawler } from './api/client'
+import { favoriteIds } from './utils/storage'
 import { ElMessage, ElNotification } from 'element-plus'
 
 // State
@@ -129,7 +139,8 @@ const filterParams = reactive({
   category: '',
   campus: '全部',
   search: '',
-  upcoming_only: false
+  upcoming_only: false,
+  only_favorites: false
 })
 
 // Modal state
@@ -146,6 +157,13 @@ const activeFilterDesc = computed(() => {
   return parts.join(' · ')
 })
 
+// When favorites change and we are on "only_favorites" tab, update list
+watch(favoriteIds, () => {
+  if (filterParams.only_favorites) {
+    loadData()
+  }
+}, { deep: true })
+
 async function loadStats() {
   try {
     const data = await getStatsSummary()
@@ -158,16 +176,29 @@ async function loadStats() {
 async function loadData() {
   loading.value = true
   try {
+    // If viewing favorites only, fetch wider batch and filter by stored IDs
+    const fetchLimit = filterParams.only_favorites ? 100 : pageSize.value
+    const fetchPage = filterParams.only_favorites ? 1 : currentPage.value
+
     const res = await getItems({
       category: filterParams.category || undefined,
       campus: filterParams.campus !== '全部' ? filterParams.campus : undefined,
       search: filterParams.search || undefined,
       upcoming_only: filterParams.upcoming_only || undefined,
-      page: currentPage.value,
-      limit: pageSize.value
+      page: fetchPage,
+      limit: fetchLimit
     })
-    items.value = res.items || []
-    totalItems.value = res.total || 0
+
+    let fetchedItems = res.items || []
+
+    if (filterParams.only_favorites) {
+      fetchedItems = fetchedItems.filter(item => favoriteIds.value.includes(item.id))
+      items.value = fetchedItems
+      totalItems.value = fetchedItems.length
+    } else {
+      items.value = fetchedItems
+      totalItems.value = res.total || 0
+    }
   } catch (err) {
     console.error('Failed to load items:', err)
     ElMessage.error('无法连接后端 API 服务，请确认后端已启动在 8000 端口')
@@ -202,6 +233,7 @@ function onFilterChange(filters) {
   filterParams.campus = filters.campus
   filterParams.search = filters.search
   filterParams.upcoming_only = filters.upcoming_only
+  filterParams.only_favorites = filters.only_favorites
   currentPage.value = 1
   loadData()
 }
@@ -224,6 +256,7 @@ function resetFilters() {
   filterParams.campus = '全部'
   filterParams.search = ''
   filterParams.upcoming_only = false
+  filterParams.only_favorites = false
   currentCampus.value = '全部'
   currentPage.value = 1
   loadData()
@@ -276,6 +309,11 @@ onMounted(() => {
 .result-count .highlight {
   font-weight: 700;
   color: #2563eb;
+}
+
+.result-count .highlight-fav {
+  font-weight: 700;
+  color: #d97706;
 }
 
 .filter-hint {

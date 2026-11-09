@@ -67,27 +67,35 @@
 
       <!-- Filter Tags Row -->
       <div class="tags-row">
-        <!-- Category Filter -->
+        <!-- Category & Favorites Filter -->
         <div class="filter-group">
-          <span class="group-title">情报类型:</span>
+          <span class="group-title">情报分类:</span>
           <div class="pill-group">
             <button
-              :class="['filter-pill', { active: selectedCategory === '' }]"
+              :class="['filter-pill', { active: !onlyFavorites && selectedCategory === '' }]"
               @click="changeCategory('')"
             >
               全部类型
             </button>
             <button
-              :class="['filter-pill', { active: selectedCategory === 'academic' }]"
+              :class="['filter-pill', { active: !onlyFavorites && selectedCategory === 'academic' }]"
               @click="changeCategory('academic')"
             >
               🎓 学术讲座
             </button>
             <button
-              :class="['filter-pill', { active: selectedCategory === 'competition' }]"
+              :class="['filter-pill', { active: !onlyFavorites && selectedCategory === 'competition' }]"
               @click="changeCategory('competition')"
             >
               🏆 竞赛选拔
+            </button>
+            <!-- My Favorites Pill -->
+            <button
+              :class="['filter-pill fav-pill', { active: onlyFavorites }]"
+              @click="toggleFavoritesTab"
+            >
+              ⭐ 我的关注
+              <span class="fav-count" v-if="favCount > 0">{{ favCount }}</span>
             </button>
           </div>
         </div>
@@ -119,7 +127,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { favoriteIds } from '../utils/storage'
 
 const props = defineProps({
   stats: {
@@ -138,6 +147,9 @@ const searchKeyword = ref('')
 const selectedCategory = ref('')
 const selectedCampus = ref(props.campus)
 const upcomingOnly = ref(false)
+const onlyFavorites = ref(false)
+
+const favCount = computed(() => favoriteIds.value.length)
 
 const campuses = [
   { label: '全部校区', value: '全部' },
@@ -152,7 +164,13 @@ watch(() => props.campus, (newVal) => {
 })
 
 function changeCategory(cat) {
+  onlyFavorites.value = false
   selectedCategory.value = cat
+  emitChange()
+}
+
+function toggleFavoritesTab() {
+  onlyFavorites.value = !onlyFavorites.value
   emitChange()
 }
 
@@ -174,6 +192,7 @@ function handleReset() {
   selectedCategory.value = ''
   selectedCampus.value = '全部'
   upcomingOnly.value = false
+  onlyFavorites.value = false
   emitChange()
 }
 
@@ -182,7 +201,8 @@ function emitChange() {
     search: searchKeyword.value.trim(),
     category: selectedCategory.value,
     campus: selectedCampus.value,
-    upcoming_only: upcomingOnly.value
+    upcoming_only: upcomingOnly.value,
+    only_favorites: onlyFavorites.value
   })
 }
 </script>
@@ -333,6 +353,39 @@ function emitChange() {
   border-color: #2563eb;
   font-weight: 600;
   box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.2);
+}
+
+.fav-pill {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.fav-pill:hover {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.fav-pill.active {
+  background: #f59e0b;
+  color: #ffffff;
+  border-color: #f59e0b;
+  box-shadow: 0 2px 4px 0 rgba(245, 158, 11, 0.3);
+}
+
+.fav-count {
+  font-size: 0.68rem;
+  background: rgba(255, 255, 255, 0.3);
+  padding: 1px 5px;
+  border-radius: 9999px;
+  margin-left: 2px;
+}
+
+.fav-pill:not(.active) .fav-count {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .upcoming-toggle {

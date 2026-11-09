@@ -14,12 +14,24 @@
         </span>
       </div>
 
-      <!-- Deadline Countdown Badge -->
-      <div class="deadline-badge-box">
-        <span :class="['countdown-badge', countdownStatus.level]">
-          <span class="icon">{{ countdownStatus.icon }}</span>
-          <span>{{ countdownStatus.text }}</span>
-        </span>
+      <!-- Right Header Actions: Deadline Badge & Favorite Button -->
+      <div class="right-header-actions">
+        <!-- Deadline Countdown Badge -->
+        <div class="deadline-badge-box">
+          <span :class="['countdown-badge', countdownStatus.level]">
+            <span class="icon">{{ countdownStatus.icon }}</span>
+            <span>{{ countdownStatus.text }}</span>
+          </span>
+        </div>
+
+        <!-- Star / Favorite Button -->
+        <button
+          :class="['favorite-btn', { active: isStarred }]"
+          :title="isStarred ? '取消关注' : '加入我的关注'"
+          @click.stop="handleToggleFavorite"
+        >
+          <span class="star-icon">{{ isStarred ? '★' : '☆' }}</span>
+        </button>
       </div>
     </div>
 
@@ -62,8 +74,18 @@
       </div>
 
       <div class="footer-actions">
+        <!-- Add to Calendar .ics Button -->
+        <el-button
+          size="small"
+          class="calendar-btn"
+          @click.stop="handleExportCalendar"
+          title="导出 .ics 日历文件，加入手机或电脑系统日程"
+        >
+          📅 日程
+        </el-button>
+
         <el-button size="small" type="primary" plain @click="$emit('select', item)">
-          情报详情
+          详情
         </el-button>
         <a
           v-if="item.url"
@@ -72,6 +94,7 @@
           rel="noopener noreferrer"
           class="ext-link"
           title="跳转校园网原文"
+          @click.stop
         >
           原文 ↗
         </a>
@@ -82,6 +105,9 @@
 
 <script setup>
 import { computed } from 'vue'
+import { isFavorite, toggleFavorite } from '../utils/storage'
+import { exportToCalendar } from '../utils/calendar'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   item: {
@@ -91,6 +117,27 @@ const props = defineProps({
 })
 
 defineEmits(['select'])
+
+const isStarred = computed(() => isFavorite(props.item.id))
+
+function handleToggleFavorite() {
+  const added = toggleFavorite(props.item.id)
+  if (added) {
+    ElMessage.success('已加入“我的关注”！可在顶部 Tab 快速查看')
+  } else {
+    ElMessage.info('已取消关注')
+  }
+}
+
+function handleExportCalendar() {
+  const success = exportToCalendar(props.item)
+  if (success) {
+    ElMessage.success({
+      message: '已生成 .ics 日历文件，双击即可加入系统日程与闹钟提醒！',
+      duration: 3500
+    })
+  }
+}
 
 const categoryLabel = computed(() => {
   const map = {
@@ -161,6 +208,7 @@ const countdownStatus = computed(() => {
   flex-direction: column;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  position: relative;
 }
 
 .item-card:hover {
@@ -180,6 +228,34 @@ const countdownStatus = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.right-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.favorite-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.15rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: all 0.15s ease-in-out;
+  border-radius: 4px;
+}
+
+.favorite-btn:hover {
+  color: #f59e0b;
+  transform: scale(1.15);
+}
+
+.favorite-btn.active {
+  color: #f59e0b;
+  text-shadow: 0 0 4px rgba(245, 158, 11, 0.35);
 }
 
 .badge {
@@ -363,7 +439,21 @@ const countdownStatus = computed(() => {
 .footer-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
+}
+
+.calendar-btn {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.calendar-btn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
 }
 
 .ext-link {
