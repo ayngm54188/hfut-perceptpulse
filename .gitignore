@@ -43,3 +43,6 @@ dist-ssr/
 *.swo
 .DS_Store
 Thumbs.db
+# Keep reports directory
+!backend/data/reports/.gitkeep
+backend/data/reports/*.md
