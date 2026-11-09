@@ -3,7 +3,7 @@ import axios from 'axios'
 // Create Axios client with base URL pointing to FastAPI backend
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  timeout: 10000,
+  timeout: 60000, // allow 60s for live crawling if triggered from frontend
   headers: {
     'Content-Type': 'application/json'
   }
@@ -32,6 +32,14 @@ export async function getItemDetail(id) {
  */
 export async function getStatsSummary() {
   const response = await apiClient.get('/stats/summary')
+  return response.data
+}
+
+/**
+ * Trigger live crawler on backend
+ */
+export async function triggerCrawler() {
+  const response = await apiClient.post('/crawler/run')
   return response.data
 }
 

@@ -18,9 +18,18 @@
           共感知到 <span class="highlight">{{ totalItems }}</span> 条学术与竞赛情报
           <span v-if="activeFilterDesc" class="filter-hint">({{ activeFilterDesc }})</span>
         </div>
-        <div class="refresh-action">
+        <div class="actions-group">
+          <el-button
+            size="small"
+            type="primary"
+            :loading="crawling"
+            @click="handleTriggerCrawl"
+            title="实时联网爬取合工大各学院官网最新通知与讲座"
+          >
+            📡 联网感知采集
+          </el-button>
           <el-button size="small" :loading="loading" @click="loadData">
-            🔄 刷新情报
+            🔄 刷新看板
           </el-button>
         </div>
       </div>
@@ -97,11 +106,12 @@ import Navbar from './components/Navbar.vue'
 import FilterBar from './components/FilterBar.vue'
 import ItemCard from './components/ItemCard.vue'
 import DetailModal from './components/DetailModal.vue'
-import { getItems, getItemDetail, getStatsSummary } from './api/client'
-import { ElMessage } from 'element-plus'
+import { getItems, getItemDetail, getStatsSummary, triggerCrawler } from './api/client'
+import { ElMessage, ElNotification } from 'element-plus'
 
 // State
 const loading = ref(false)
+const crawling = ref(false)
 const items = ref([])
 const totalItems = ref(0)
 const currentPage = ref(1)
@@ -163,6 +173,27 @@ async function loadData() {
     ElMessage.error('无法连接后端 API 服务，请确认后端已启动在 8000 端口')
   } finally {
     loading.value = false
+  }
+}
+
+async function handleTriggerCrawl() {
+  crawling.value = true
+  ElMessage.info('正在联网抓取合工大学院官网最新学术与竞赛公告...')
+  try {
+    const res = await triggerCrawler()
+    ElNotification({
+      title: '情报感知完成',
+      message: `本次扫描发现 ${res.total_scraped} 篇公告，新增入库 ${res.new_inserted} 条，跳过重复 ${res.skipped_existing} 条。`,
+      type: 'success',
+      duration: 5000
+    })
+    await loadStats()
+    await loadData()
+  } catch (err) {
+    console.error('Crawler failed:', err)
+    ElMessage.error('感知采集失败，请检查网络连接或后端日志')
+  } finally {
+    crawling.value = false
   }
 }
 
@@ -253,6 +284,12 @@ onMounted(() => {
   margin-left: 0.5rem;
 }
 
+.actions-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
@@ -298,6 +335,11 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .result-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
   .card-grid {
     grid-template-columns: 1fr;
   }
